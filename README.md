@@ -1,4 +1,6 @@
-Line-bot-Code
+Line-Bot-Code
 =============
 
-The "brains" for the line-robot shown at https://www.youtube.com/watch?v=DgfTVg0LRrY
+The "brain" for the line-robot shown at https://www.youtube.com/watch?v=DgfTVg0LRrY
+
+Comments or questions are welcome.
