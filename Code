@@ -1,0 +1,158 @@
+//This code was adapted from Chapter 4: Linus the Line-Bot of "Arduino Robotics" (2011; ISBN-10: 1430231831).
+
+//To use the Adafruit Motorshield V2 for Arduino, you will need to download the library for the shield at:
+//(https://learn.adafruit.com/adafruit-motor-shield-v2-for-arduino/install-software).
+
+//More information on the Adafruit Motorshield can be found here:
+//(https://learn.adafruit.com/adafruit-motor-shield-v2-for-arduino/overview).
+
+//Import the necessary libraries.
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_PWMServoDriver.h"  
+
+//Create the Adafruit_MotorShield object.
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+
+//Attach the gas motor to the Adafruit Motorshield port M1.
+//Attach steering motor to M2.
+//This configuration is what worked for me; any of the other two ports (M3, M4) would have worked as well.
+Adafruit_DCMotor *gas = AFMS.getMotor(1);
+Adafruit_DCMotor *steering = AFMS.getMotor(2);
+
+
+//Declare variables for sensor reading.
+int sensor0=0;
+int sensor1=0;
+int sensor2=0;
+
+//Declare variables for adjusted readings.
+int Right=0;
+int Center=0;
+int Left=0;
+
+//Create minimum and maximum values of the sensors for calibration purposes.
+//Play with these numbers to determine what the minimum and maximum values are for your setup.
+int s0_min=100;
+int s0_max=985;
+
+int s1_min=100;
+int s1_max=985;
+
+int s2_min=100;
+int s2_max=985;
+
+//This value defines when a sensor is reading the black line. 
+//Again, you may decide to play with this value to determine what value best represents when your sensors are reading a black line.
+int threshold = 80;
+
+void setup() {
+  //Opens Serial port and sets data rate to 9600 bps.
+  Serial.begin(9600);
+  //Connect to the Motorshield.
+  AFMS.begin();
+  
+  //Declare the gas motor.
+  gas->setSpeed(255);
+  gas->run(RELEASE);
+  
+  //Declare the steering motor.
+  steering->setSpeed(255);
+  steering->run(RELEASE);
+
+}
+
+void update_sensors(){
+  //Reads the values of the sensors, scales them to Arduino's analog output resolution of 0-255,
+  //then stores the values for later use.
+  
+  sensor0 = analogRead(0);        //sensor0 = Right.
+  Right = map(sensor0, s0_min, s0_max, 0, 255);
+      //Scaling the value to Arduino Settings.
+  Right = constrain(Right, 0, 255);
+      //'constrain' forces a number to stay within a certain range; anything higher than 255 will just be 255, lower than 0 will just be 0.
+      //In effect limiting range of sensor value to between 0 and 255, Arduino's analog output range.
+      
+  sensor1 = analogRead(1);         // sensor 1 = Center.
+  Center = map(sensor1, s1_min, s1_max, 0, 255);   
+  Center = constrain(Center, 0, 255);
+  
+  sensor2 = analogRead(2);         // sensor 2 = Left.
+  Left = map(sensor2, s2_min, s2_max, 0, 255);   
+  Left = constrain(Left, 0, 255);
+  
+}
+
+void loop(){
+  
+  //Begin by updating the sensor values of the robot.
+  update_sensors(); 
+  
+  //From that, establish where the robot is in relation to the black line.
+  if(Center < threshold){  //i.e., The center sensor is still reading a black line.
+    if(Right > threshold && Left > threshold){  //i.e., The left and right sensors are no longer reading black.
+    
+    //From the previous, the robot must still be centered on the black line.  Nothing to do but go forward!
+    gas->run(FORWARD);
+    gas->setSpeed(130);   //Adjust speed to your preference, 0(immobile) to 255(full speed).
+    
+    steering->run(RELEASE);  //No need to steer, since the robot needs only to move forward.
+    
+    }
+    
+    //But what if all of the sensors are reading black?  
+    
+    else if (Right < threshold){
+      if (Center < threshold){
+        if(Left < threshold){
+                
+                //The robot hit a black box; it should stop.
+                gas->run(RELEASE);
+                steering->run(RELEASE);
+                
+           
+          }
+        }
+      }
+    }
+  
+  //This was if the robot's center sensor was on the black line.
+  //If it wasnt, that means it needs to turn.
+ 
+  else{
+   
+   if(Right < threshold){  //The right sensor picks up a black line.
+    gas->run(FORWARD);   
+    gas->setSpeed(130);
+   
+    steering->run(FORWARD);    //If the wheels turn the wrong way, either switch the motor wires in the motorshield port
+                               //or change 'FORWARD' to 'BACKWARD'
+    steering->setSpeed(200);   //Higher speed, quicker turn of the wheels, and vice versa.  Again, your preference.
+   }
+  
+   else if(Left < threshold){  //The left sensor picks up a black line.
+    gas->run(FORWARD);
+    gas->setSpeed(130);
+   
+    steering->run(BACKWARD);   //If the wheels turn the wrong way, either switch the motor wires in the motorshield port
+                               //or change 'BACKWARD' to 'FORWARD'
+    steering->setSpeed(200);
+   }
+   
+  } 
+  //Serial Port communication to see what the sensors are picking up.
+  //Useful for determining what the low and high points for the sensors are.
+  //I think they are dandy.
+  Serial.print("Right: ");
+  Serial.print(Right);
+  Serial.print("   ");
+  
+  Serial.print("Center: ");
+  Serial.print(Center);
+  Serial.print("   ");
+  
+  Serial.print("Left: ");
+  Serial.print(Left);
+  Serial.println("   ");
+  
+}
